@@ -7,6 +7,7 @@ use App\Http\Controllers\GabineteController;
 use App\Http\Controllers\VeiculoController;
 use App\Http\Controllers\PontoAtendimentoController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\TriagemController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use Illuminate\Support\Facades\Route;
@@ -32,7 +33,18 @@ Route::middleware(['auth'])->group(function () {
     // Dashboard - Todos os usuários autenticados
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
-    // Todas as rotas principais - remover middleware role temporariamente
+    // Triagem Inteligente
+    Route::prefix('triagem')->name('triagem.')->group(function () {
+        Route::get('/', [TriagemController::class, 'index'])->name('index');
+        Route::get('/create', [TriagemController::class, 'create'])->name('create');
+        Route::post('/store', [TriagemController::class, 'store'])->name('store');
+        Route::get('/resultado/{paciente}', [TriagemController::class, 'resultado'])->name('resultado');
+        Route::get('/imprimir/{paciente}', [TriagemController::class, 'imprimirFicha'])->name('imprimir-ficha');
+        Route::post('/avaliar-sintomas', [TriagemController::class, 'avaliarSintomas'])->name('avaliar-sintomas');
+        Route::post('/hospital-proximo', [TriagemController::class, 'buscarHospitalProximo'])->name('hospital-proximo');
+    });
+    
+    // Todas as rotas principais
     Route::resource('usuarios', UserController::class);
     Route::resource('pacientes', PacienteController::class);
     Route::resource('estabelecimentos', EstabelecimentoController::class);

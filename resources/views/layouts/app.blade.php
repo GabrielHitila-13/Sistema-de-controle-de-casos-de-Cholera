@@ -58,6 +58,10 @@
                         <i class="fas fa-map-marker-alt mr-3"></i>
                         Pontos de Atendimento
                     </a>
+                    <a href="{{ route('triagem.index') }}" class="flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 rounded-lg">
+                        <i class="fas fa-map-marker-alt mr-3"></i>
+                        Triagem
+                    </a>
                 </div>
             </nav>
         </aside>
@@ -79,5 +83,19 @@
             @yield('content')
         </main>
     </div>
+<!---footer-->
+    <footer class="bg-blue-800 text-white py-4 mt-8">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="flex flex-col md:flex-row justify-between items-center">
+            <p class="text-sm">&copy; {{ date('Y') }} Sistema Cólera Angola. Todos os direitos reservados.</p>
+            <div class="flex space-x-4 mt-2 md:mt-0">
+                <a href="#" class="text-sm hover:underline">Política de Privacidade</a>
+                <a href="#" class="text-sm hover:underline">Termos de Uso</a>
+                <a href="#" class="text-sm hover:underline">Contato</a>
+            </div>
+        </div>
+    </div>
+</footer>
+
 </body>
 </html>
