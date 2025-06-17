@@ -6,6 +6,7 @@ use App\Http\Controllers\EstabelecimentoController;
 use App\Http\Controllers\GabineteController;
 use App\Http\Controllers\VeiculoController;
 use App\Http\Controllers\PontoAtendimentoController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\RegisteredUserController;
 use Illuminate\Support\Facades\Route;
@@ -24,28 +25,25 @@ Route::middleware('guest')->group(function () {
     Route::post('register', [RegisteredUserController::class, 'store']);
 });
 
-Route::middleware('auth')->group(function () {
+// Rotas autenticadas
+Route::middleware(['auth'])->group(function () {
     Route::post('logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     
-    // Dashboard
+    // Dashboard - Todos os usuários autenticados
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
     
-    // Pacientes
+    // Todas as rotas principais - remover middleware role temporariamente
+    Route::resource('usuarios', UserController::class);
     Route::resource('pacientes', PacienteController::class);
-    Route::get('/relatorios/pacientes-pdf', [PacienteController::class, 'exportPdf'])->name('relatorios.pacientes.pdf');
-    
-    // Estabelecimentos
     Route::resource('estabelecimentos', EstabelecimentoController::class);
-    
-    // Gabinetes
     Route::resource('gabinetes', GabineteController::class);
-    
-    // Veículos
     Route::resource('veiculos', VeiculoController::class);
-    Route::patch('veiculos/{veiculo}/status', [VeiculoController::class, 'updateStatus'])->name('veiculos.update-status');
-    
-    // Pontos de Atendimento
     Route::resource('pontos-atendimento', PontoAtendimentoController::class);
+    
+    // Rotas adicionais
+    Route::patch('usuarios/{usuario}/toggle-status', [UserController::class, 'toggleStatus'])->name('usuarios.toggle-status');
+    Route::patch('veiculos/{veiculo}/status', [VeiculoController::class, 'updateStatus'])->name('veiculos.update-status');
+    Route::get('/relatorios/pacientes-pdf', [PacienteController::class, 'exportPdf'])->name('relatorios.pacientes.pdf');
     
     // API Routes para Dashboard (AJAX)
     Route::get('/api/dashboard/stats', [DashboardController::class, 'getStats'])->name('api.dashboard.stats');

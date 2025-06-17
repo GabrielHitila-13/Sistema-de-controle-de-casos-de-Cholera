@@ -234,28 +234,22 @@ class PacienteSeeder extends Seeder
         ];
 
         foreach ($pacientes as $dadosPaciente) {
-            $paciente = new Paciente();
-            $paciente->nome = $dadosPaciente['nome'];
-            $paciente->bi = $dadosPaciente['bi'];
-            $paciente->data_nascimento = $dadosPaciente['data_nascimento'];
-            $paciente->sexo = $dadosPaciente['sexo'];
-            $paciente->sintomas = $dadosPaciente['sintomas'];
-            $paciente->risco = $dadosPaciente['risco'];
-            $paciente->estabelecimento_id = $dadosPaciente['estabelecimento_id'];
-            $paciente->data_triagem = $dadosPaciente['data_triagem'];
+            // Verificar se o paciente já existe
+            $existingPaciente = Paciente::where('bi', $dadosPaciente['bi'])->first();
+            
+            if (!$existingPaciente) {
+                $paciente = Paciente::create($dadosPaciente);
 
-            // Criptografar telefone se fornecido
-            if (!empty($dadosPaciente['telefone'])) {
-                $paciente->telefone = $dadosPaciente['telefone'];
+                // Gerar QR Code
+                $this->gerarQrCode($paciente);
+                
+                $this->command->info("Paciente criado: {$dadosPaciente['nome']}");
+            } else {
+                $this->command->warn("Paciente já existe: {$dadosPaciente['nome']} (BI: {$dadosPaciente['bi']})");
             }
-
-            $paciente->save();
-
-            // Gerar QR Code
-            $this->gerarQrCode($paciente);
         }
 
-        $this->command->info('Pacientes criados com sucesso!');
+        $this->command->info('Pacientes processados com sucesso!');
         $this->command->info('- Alto risco: ' . Paciente::where('risco', 'alto')->count() . ' pacientes');
         $this->command->info('- Médio risco: ' . Paciente::where('risco', 'medio')->count() . ' pacientes');
         $this->command->info('- Baixo risco: ' . Paciente::where('risco', 'baixo')->count() . ' pacientes');

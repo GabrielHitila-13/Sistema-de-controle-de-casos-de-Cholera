@@ -6,21 +6,27 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    public function up()
+    /**
+     * Run the migrations.
+     */
+    public function up(): void
     {
         Schema::create('estabelecimentos', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('gabinete_id')->constrained('gabinetes')->onDelete('cascade');
             $table->string('nome');
+            $table->foreignId('gabinete_id')->constrained('gabinetes')->onDelete('cascade');
             $table->enum('categoria', ['geral', 'municipal', 'centro', 'posto', 'clinica', 'outros']);
             $table->text('endereco')->nullable();
-            $table->string('telefone')->nullable();
+            $table->string('telefone', 20)->nullable();
             $table->integer('capacidade')->default(0);
             $table->timestamps();
         });
     }
 
-    public function down()
+    /**
+     * Reverse the migrations.
+     */
+    public function down(): void
     {
         Schema::dropIfExists('estabelecimentos');
     }

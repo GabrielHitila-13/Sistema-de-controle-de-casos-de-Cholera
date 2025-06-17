@@ -111,10 +111,18 @@ class GabineteSeeder extends Seeder
             ],
         ];
 
-        foreach ($gabinetes as $gabinete) {
-            Gabinete::create($gabinete);
+        foreach ($gabinetes as $gabineteData) {
+            // Verificar se o gabinete já existe
+            $existingGabinete = Gabinete::where('nome', $gabineteData['nome'])->first();
+            
+            if (!$existingGabinete) {
+                Gabinete::create($gabineteData);
+                $this->command->info("Gabinete criado: {$gabineteData['nome']}");
+            } else {
+                $this->command->warn("Gabinete já existe: {$gabineteData['nome']}");
+            }
         }
 
-        $this->command->info('Gabinetes criados com sucesso!');
+        $this->command->info('Gabinetes processados com sucesso!');
     }
 }

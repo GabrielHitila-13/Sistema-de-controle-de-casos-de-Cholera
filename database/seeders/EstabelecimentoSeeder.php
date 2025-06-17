@@ -116,7 +116,7 @@ class EstabelecimentoSeeder extends Seeder
 
             // Clínicas
             [
-                'nome' => 'Cl��nica Sagrada Esperança',
+                'nome' => 'Clínica Sagrada Esperança',
                 'categoria' => 'clinica',
                 'endereco' => 'Talatona, Luanda',
                 'telefone' => '+244 222 000 100',
@@ -163,17 +163,27 @@ class EstabelecimentoSeeder extends Seeder
             $gabinete = $gabinetes->where('nome', $estabelecimentoData['gabinete_nome'])->first();
             
             if ($gabinete) {
-                Estabelecimento::create([
-                    'nome' => $estabelecimentoData['nome'],
-                    'categoria' => $estabelecimentoData['categoria'],
-                    'endereco' => $estabelecimentoData['endereco'],
-                    'telefone' => $estabelecimentoData['telefone'],
-                    'capacidade' => $estabelecimentoData['capacidade'],
-                    'gabinete_id' => $gabinete->id,
-                ]);
+                // Verificar se o estabelecimento já existe
+                $existingEstabelecimento = Estabelecimento::where('nome', $estabelecimentoData['nome'])->first();
+                
+                if (!$existingEstabelecimento) {
+                    Estabelecimento::create([
+                        'nome' => $estabelecimentoData['nome'],
+                        'categoria' => $estabelecimentoData['categoria'],
+                        'endereco' => $estabelecimentoData['endereco'],
+                        'telefone' => $estabelecimentoData['telefone'],
+                        'capacidade' => $estabelecimentoData['capacidade'],
+                        'gabinete_id' => $gabinete->id,
+                    ]);
+                    $this->command->info("Estabelecimento criado: {$estabelecimentoData['nome']}");
+                } else {
+                    $this->command->warn("Estabelecimento já existe: {$estabelecimentoData['nome']}");
+                }
+            } else {
+                $this->command->error("Gabinete não encontrado: {$estabelecimentoData['gabinete_nome']}");
             }
         }
 
-        $this->command->info('Estabelecimentos criados com sucesso!');
+        $this->command->info('Estabelecimentos processados com sucesso!');
     }
 }

@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Crypt;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 
 class Paciente extends Model
 {
@@ -13,53 +13,111 @@ class Paciente extends Model
     protected $fillable = [
         'nome',
         'bi',
-        'telefone_encrypted',
+        'telefone',
         'data_nascimento',
         'sexo',
+        'estabelecimento_id',
         'sintomas',
         'risco',
+        'data_triagem',
         'qr_code',
-        'estabelecimento_id',
-        'data_triagem'
     ];
 
     protected $casts = [
         'data_nascimento' => 'date',
-        'data_triagem' => 'datetime'
+        'data_triagem' => 'datetime',
+        'created_at' => 'datetime',
+        'updated_at' => 'datetime',
     ];
 
+    /**
+     * Relacionamentos
+     */
     public function estabelecimento()
     {
         return $this->belongsTo(Estabelecimento::class);
     }
 
-    // Accessor para descriptografar telefone
-    public function getTelefoneAttribute()
+    /**
+     * Scopes
+     */
+    public function scopeAltoRisco($query)
     {
-        return $this->telefone_encrypted ? Crypt::decryptString($this->telefone_encrypted) : null;
+        return $query->where('risco', 'alto');
     }
 
-    // Mutator para criptografar telefone
-    public function setTelefoneAttribute($value)
+    public function scopeMedioRisco($query)
     {
-        $this->attributes['telefone_encrypted'] = $value ? Crypt::encryptString($value) : null;
+        return $query->where('risco', 'medio');
     }
 
-    // Método para calcular risco baseado em sintomas
-    public function calcularRisco()
+    public function scopeBaixoRisco($query)
     {
-        $sintomas = strtolower($this->sintomas ?? '');
-        $pontuacao = 0;
+        return $query->where('risco', 'baixo');
+    }
 
-        // Sintomas de alto risco
-        if (str_contains($sintomas, 'diarreia aquosa')) $pontuacao += 3;
-        if (str_contains($sintomas, 'vomito')) $pontuacao += 2;
-        if (str_contains($sintomas, 'desidratacao')) $pontuacao += 3;
-        if (str_contains($sintomas, 'febre')) $pontuacao += 1;
-        if (str_contains($sintomas, 'dor abdominal')) $pontuacao += 1;
+    public function scopePorEstabelecimento($query, $estabelecimentoId)
+    {
+        return $query->where('estabelecimento_id', $estabelecimentoId);
+    }
 
-        if ($pontuacao >= 5) return 'alto';
-        if ($pontuacao >= 3) return 'medio';
-        return 'baixo';
+    /**
+     * Accessors
+     */
+    public function getIdadeAttribute()
+    {
+        return $this->data_nascimento->age;
+    }
+
+    public function getRiscoFormatadoAttribute()
+    {
+        return ucfirst($this->risco);
+    }
+
+    public function getSexoFormatadoAttribute()
+    {
+        return ucfirst($this->sexo);
+    }
+
+    /**
+     * Verificar se é caso urgente
+     */
+    public function isUrgente()
+    {
+        return $this->risco === 'alto';
+    }
+
+    /**
+     * Verificar se precisa de atenção
+     */
+    public function precisaAtencao()
+    {
+        return in_array($this->risco, ['alto', 'medio']);
+    }
+
+    /**
+     * Obter cor do badge baseado no risco
+     */
+    public function getCorRiscoAttribute()
+    {
+        return match($this->risco) {
+            'alto' => 'red',
+            'medio' => 'yellow',
+            'baixo' => 'green',
+            default => 'gray'
+        };
+    }
+
+    /**
+     * Obter classe CSS do badge baseado no risco
+     */
+    public function getClasseRiscoAttribute()
+    {
+        return match($this->risco) {
+            'alto' => 'badge-alto',
+            'medio' => 'badge-medio',
+            'baixo' => 'badge-baixo',
+            default => 'badge-baixo'
+        };
     }
 }
