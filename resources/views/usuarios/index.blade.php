@@ -6,12 +6,11 @@
 <div class="space-y-6">
     <div class="flex justify-between items-center">
         <h2 class="text-3xl font-bold text-gray-900">Gestão de Usuários</h2>
-        @can('create-users')
-        <a href="{{ route('usuarios.create') }}" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center">
-            <i class="fas fa-plus mr-2"></i>
+        <a href="{{ route('usuarios.create') }}"
+           class="inline-flex items-center gap-2 bg-blue-700 hover:bg-blue-800 text-white text-lg font-semibold px-6 py-3 rounded-xl shadow-lg transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2">
+            <i class="fas fa-user-plus text-xl"></i>
             Novo Usuário
         </a>
-        @endcan
     </div>
 
     <!-- Filtros -->
@@ -91,70 +90,76 @@
 
     <!-- Lista de Usuários -->
     <div class="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul class="divide-y divide-gray-200">
-            @forelse($users as $user)
-            <li>
-                <div class="px-4 py-4 flex items-center justify-between">
-                    <div class="flex items-center">
+        <table class="min-w-full divide-y divide-gray-200">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nome</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Papel</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Último acesso</th>
+                    <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ações</th>
+                </tr>
+            </thead>
+            <tbody class="bg-white divide-y divide-gray-200">
+                @forelse($users as $user)
+                <tr>
+                    <td class="px-6 py-4 whitespace-nowrap flex items-center">
                         <div class="flex-shrink-0 h-10 w-10">
                             <div class="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
                                 <i class="fas fa-user text-blue-600"></i>
                             </div>
                         </div>
                         <div class="ml-4">
-                            <div class="flex items-center">
-                                <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
-                                <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                                    @if($user->papel == 'administrador') bg-red-100 text-red-800
-                                    @elseif($user->papel == 'gestor') bg-blue-100 text-blue-800
-                                    @elseif($user->papel == 'medico') bg-green-100 text-green-800
-                                    @elseif($user->papel == 'tecnico') bg-yellow-100 text-yellow-800
-                                    @else bg-purple-100 text-purple-800 @endif">
-                                    {{ ucfirst($user->papel) }}
-                                </span>
-                            </div>
-                            <div class="text-sm text-gray-500">{{ $user->email }}</div>
-                            @if($user->ultimo_acesso)
-                            <div class="text-xs text-gray-400">
-                                Último acesso: {{ $user->ultimo_acesso->format('d/m/Y H:i') }}
-                            </div>
+                            <div class="text-sm font-medium text-gray-900">{{ $user->name }}</div>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <div class="text-sm text-gray-500">{{ $user->email }}</div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                            @if($user->papel == 'administrador') bg-red-100 text-red-800
+                            @elseif($user->papel == 'gestor') bg-blue-100 text-blue-800
+                            @elseif($user->papel == 'medico') bg-green-100 text-green-800
+                            @elseif($user->papel == 'tecnico') bg-yellow-100 text-yellow-800
+                            @else bg-purple-100 text-purple-800 @endif">
+                            {{ ucfirst($user->papel) }}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        @if($user->ultimo_acesso)
+                            <span class="text-xs text-gray-400">{{ $user->ultimo_acesso->format('d/m/Y H:i') }}</span>
+                        @else
+                            <span class="text-xs text-gray-300">Nunca</span>
+                        @endif
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div class="flex items-center justify-end space-x-2">
+                            <a href="{{ route('usuarios.show', $user) }}" class="text-blue-600 hover:text-blue-900" title="Ver">
+                                <i class="fas fa-eye"></i>
+                            </a>
+                            <a href="{{ route('usuarios.edit', $user) }}" class="text-green-600 hover:text-green-900" title="Editar">
+                                <i class="fas fa-edit"></i>
+                            </a>
+                            @if($user->id !== auth()->id())
+                            <form method="POST" action="{{ route('usuarios.destroy', $user) }}" class="inline" onsubmit="return confirm('Tem certeza que deseja excluir este usuário?')">
+                                @csrf
+                                @method('DELETE')
+                                <button type="submit" class="text-red-600 hover:text-red-900" title="Excluir">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </form>
                             @endif
                         </div>
-                    </div>
-                    <div class="flex items-center space-x-2">
-                        @can('view-users')
-                        <a href="{{ route('usuarios.show', $user) }}" class="text-blue-600 hover:text-blue-900" title="Ver">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        @endcan
-                        
-                        @can('edit-users')
-                        <a href="{{ route('usuarios.edit', $user) }}" class="text-green-600 hover:text-green-900" title="Editar">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                        @endcan
-
-                        @can('delete-users')
-                        @if($user->id !== auth()->id())
-                        <form method="POST" action="{{ route('usuarios.destroy', $user) }}" class="inline" 
-                              onsubmit="return confirm('Tem certeza que deseja excluir este usuário?')">
-                            @csrf
-                            @method('DELETE')
-                            <button type="submit" class="text-red-600 hover:text-red-900" title="Excluir">
-                                <i class="fas fa-trash"></i>
-                            </button>
-                        </form>
-                        @endif
-                        @endcan
-                    </div>
-                </div>
-            </li>
-            @empty
-            <li class="px-4 py-8 text-center text-gray-500">
-                Nenhum usuário encontrado.
-            </li>
-            @endforelse
-        </ul>
+                    </td>
+                </tr>
+                @empty
+                <tr>
+                    <td colspan="5" class="px-6 py-8 text-center text-gray-500">Nenhum usuário encontrado.</td>
+                </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
 
     <!-- Paginação -->

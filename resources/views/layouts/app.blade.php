@@ -62,6 +62,10 @@
                         <i class="fas fa-map-marker-alt mr-3"></i>
                         Triagem
                     </a>
+                     <a href="{{ route('usuarios.index') }}" class="flex items-center px-4 py-2 text-gray-700 hover:bg-blue-50 rounded-lg">
+                        <i class="fas fa-user mr-3"></i>
+                        Usuarios (Adm/Gestor)
+                    </a>
                 </div>
             </nav>
         </aside>

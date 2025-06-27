@@ -11,6 +11,11 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
+        $user = auth()->user();
+
+    if (!in_array($user->papel, ['administrador', 'gestor'])) {
+        abort(403, 'Acesso não autorizado, seu impostor!');
+    }
         $query = User::query();
 
         // Filtros
