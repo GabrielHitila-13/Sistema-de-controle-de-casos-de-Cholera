@@ -17,7 +17,7 @@ class Paciente extends Model
         'data_nascimento',
         'sexo',
         'estabelecimento_id',
-        'sintomas',
+        'sintomas' => 'array',
         'risco',
         'data_triagem',
         'qr_code',

@@ -98,52 +98,58 @@ class PacienteController extends Controller
     public function edit(Paciente $paciente)
     {
         $estabelecimentos = Estabelecimento::with('gabinete')->orderBy('nome')->get();
+            $sintomas = is_array($paciente->sintomas) 
+        ? $paciente->sintomas 
+        : json_decode($paciente->sintomas, true) ?? [];
+
         return view('pacientes.edit', compact('paciente', 'estabelecimentos'));
     }
 
-    public function update(Request $request, Paciente $paciente)
-    {
-        $validated = $request->validate([
-            'nome' => 'required|string|max:255',
-            'bi' => 'required|string|unique:pacientes,bi,' . $paciente->id,
-            'telefone' => 'nullable|string',
-            'data_nascimento' => 'required|date',
-            'sexo' => 'required|in:masculino,feminino',
-            'estabelecimento_id' => 'required|exists:estabelecimentos,id',
-            'sintomas' => 'array',
-            'sintomas_outros' => 'nullable|string',
-        ]);
+   public function update(Request $request, Paciente $paciente)
+{
+    $validated = $request->validate([
+        'nome' => 'required|string|max:255',
+        'bi' => 'required|string|unique:pacientes,bi,' . $paciente->id,
+        'telefone' => 'nullable|string',
+        'data_nascimento' => 'required|date',
+        'sexo' => 'required|in:masculino,feminino',
+        'estabelecimento_id' => 'required|exists:estabelecimentos,id',
+        'sintomas' => 'required|array',
+        'sintomas.*' => 'string|max:255',
+        'sintomas_outros' => 'nullable|string',
+        'risco' => 'sometimes|required|in:Baixo,Médio,Alto',
+        'data_triagem' => 'sometimes|nullable|date'
+    ]);
 
-        // Processar sintomas
-        $sintomasArray = $validated['sintomas'] ?? [];
-        if (!empty($validated['sintomas_outros'])) {
-            $sintomasArray[] = $validated['sintomas_outros'];
-        }
-        $sintomasTexto = implode(', ', $sintomasArray);
-
-        // Recalcular risco se sintomas mudaram
-        $novoRisco = $this->calcularRisco($sintomasTexto);
-        if ($paciente->sintomas !== $sintomasTexto) {
-            $validated['risco'] = $novoRisco;
-            $validated['data_triagem'] = now();
-        }
-
-        $validated['sintomas'] = $sintomasTexto;
-
-        // Criptografar telefone se fornecido
-        if (!empty($validated['telefone'])) {
-            $paciente->telefone = $validated['telefone'];
-            unset($validated['telefone']);
-        }
-
-        $paciente->update($validated);
-
-        // Regenerar QR Code se dados importantes mudaram
-        $this->gerarQrCode($paciente);
-
-        return redirect()->route('pacientes.index')
-            ->with('success', 'Paciente atualizado com sucesso!');
+    // Processar sintomas
+    $sintomasProcessados = $validated['sintomas'];
+    
+    if (!empty($validated['sintomas_outros'])) {
+        $sintomasProcessados[] = $validated['sintomas_outros'];
     }
+
+    // Atualizar apenas se os sintomas mudaram
+    if ($paciente->sintomas != $sintomasProcessados) {
+        $validated['sintomas'] = $sintomasProcessados;
+        $validated['risco'] = $this->calcularRisco($sintomasProcessados); // Método deve existir
+        $validated['data_triagem'] = now();
+    }
+
+    // Atualizar telefone separadamente se necessário
+    if (array_key_exists('telefone', $validated)) {
+        $paciente->telefone = encrypt($validated['telefone']); // Exemplo de criptografia
+    }
+
+    $paciente->update($validated);
+
+    // Gerar QR code se dados críticos mudaram
+    if ($paciente->wasChanged(['nome', 'bi', 'estabelecimento_id'])) {
+        $this->gerarQrCode($paciente); // Método deve existir
+    }
+
+    return redirect()->route('pacientes.index')
+        ->with('success', 'Paciente atualizado com sucesso!');
+}
 
     public function destroy(Paciente $paciente)
     {
@@ -178,6 +184,9 @@ class PacienteController extends Controller
 
     private function calcularRisco($sintomas)
     {
+         if (is_array($sintomas)) {
+        $sintomas = implode(' ', $sintomas);
+    }
         $sintomas = strtolower($sintomas ?? '');
         $pontuacao = 0;
 
