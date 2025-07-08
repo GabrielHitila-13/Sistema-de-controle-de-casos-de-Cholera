@@ -4,28 +4,41 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
+use Symfony\Component\HttpFoundation\Response;
 
 class CheckRole
 {
-    public function handle(Request $request, Closure $next, ...$roles)
+    /**
+     * Handle an incoming request.
+     *
+     * @param  \Closure(\Illuminate\Http\Request): (\Symfony\Component\HttpFoundation\Response)  $next
+     */
+    public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        if (!Auth::check()) {
-            return redirect()->route('login');
+        if (!$request->user()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Usuário não autenticado'
+            ], 401);
         }
 
-        $user = Auth::user();
-
-        // Administrador tem acesso a tudo
-        if ($user->papel === 'administrador') {
+        $user = $request->user();
+        
+        // Administrador tem acesso total
+        if ($user->isAdmin()) {
             return $next($request);
         }
 
-        // Verificar se o usuário tem um dos papéis necessários
-        if (in_array($user->papel, $roles)) {
-            return $next($request);
+        // Verificar se o usuário tem algum dos papéis necessários
+        if (!$user->temAlgumPapel($roles)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Acesso negado. Você não tem permissão para acessar este recurso.',
+                'required_roles' => $roles,
+                'user_role' => $user->papel
+            ], 403);
         }
 
-        abort(403, 'Acesso negado. Você não tem permissão para acessar esta área.');
+        return $next($request);
     }
 }
