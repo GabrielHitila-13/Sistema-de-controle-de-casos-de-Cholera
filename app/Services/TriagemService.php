@@ -7,69 +7,82 @@ use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class TriagemService
 {
-    private $sintomasRisco = [
-        'alto' => [
-            'diarreia aquosa' => 4,
-            'diarreia abundante' => 4,
-            'desidratacao severa' => 5,
-            'desidratacao grave' => 5,
-            'vomito intenso' => 3,
-            'prostração' => 3,
-            'choque' => 5,
-            'hipotensao' => 4,
-        ],
-        'medio' => [
-            'diarreia' => 2,
-            'vomito' => 2,
-            'desidratacao' => 3,
-            'desidratacao moderada' => 3,
-            'dor abdominal intensa' => 2,
-            'febre alta' => 2,
-            'fraqueza intensa' => 2,
-        ],
-        'baixo' => [
-            'febre' => 1,
-            'febre baixa' => 1,
-            'dor abdominal' => 1,
-            'dor abdominal leve' => 1,
-            'fraqueza' => 1,
-            'mal-estar' => 1,
-            'nauseas' => 1,
-            'dor de cabeça' => 1,
-        ]
-    ];
+    protected $coleraDetectionService;
 
-    public function avaliarRisco(array $sintomas, string $sintomasOutros = ''): array
+    public function __construct(ColeraDetectionService $coleraDetectionService)
+    {
+        $this->coleraDetectionService = $coleraDetectionService;
+    }
+
+    public function realizarTriagem(int $pacienteId, array $sintomas, array $sinaisVitais = [], array $fatoresRisco = []): array
+    {
+        $paciente = Paciente::findOrFail($pacienteId);
+        
+        // Avaliar probabilidade de cólera
+        $avaliacaoColera = $this->coleraDetectionService->avaliarProbabilidadeColera(
+            $sintomas,
+            $fatoresRisco,
+            [
+                'data_nascimento' => $paciente->data_nascimento,
+                'sexo' => $paciente->sexo
+            ]
+        );
+        
+        // Avaliar risco geral
+        $avaliacaoRisco = $this->avaliarRisco($sintomas, $sinaisVitais);
+        
+        // Atualizar paciente com os resultados
+        $paciente->update([
+            'sintomas' => json_encode($sintomas),
+            'sinais_vitais' => json_encode($sinaisVitais),
+            'risco' => $avaliacaoRisco['nivel'],
+            'diagnostico_colera' => $avaliacaoColera['diagnostico'],
+            'probabilidade_colera' => $avaliacaoColera['probabilidade'],
+            'sintomas_colera' => json_encode($avaliacaoColera['sintomas_detectados']),
+            'fatores_risco' => json_encode($avaliacaoColera['fatores_risco_detectados']),
+            'data_triagem' => now(),
+            'data_diagnostico' => now(),
+            'status' => $this->determinarStatusPaciente($avaliacaoColera['urgencia'])
+        ]);
+        
+        // Gerar QR Code
+        $this->gerarQrCode($paciente);
+        
+        return [
+            'paciente' => $paciente->fresh(),
+            'avaliacao_colera' => $avaliacaoColera,
+            'avaliacao_risco' => $avaliacaoRisco,
+            'requer_ambulancia' => $this->requerAmbulancia($avaliacaoColera['urgencia']),
+            'hospital_recomendado' => $this->recomendarHospital($paciente, $avaliacaoColera['diagnostico']),
+        ];
+    }
+
+    private function avaliarRisco(array $sintomas, array $sinaisVitais): array
     {
         $pontuacao = 0;
         $sintomasDetectados = [];
-        $recomendacoes = [];
-
-        // Avaliar sintomas selecionados
+        
+        // Avaliar sintomas
         foreach ($sintomas as $sintoma) {
             $pontos = $this->calcularPontosSintoma($sintoma);
             $pontuacao += $pontos;
-            $sintomasDetectados[] = $sintoma;
+            if ($pontos > 0) {
+                $sintomasDetectados[] = $sintoma;
+            }
         }
-
-        // Avaliar sintomas em texto livre
-        if (!empty($sintomasOutros)) {
-            $pontosTexto = $this->analisarTextoSintomas($sintomasOutros);
-            $pontuacao += $pontosTexto;
-        }
-
-        // Determinar nível de risco
-        $nivel = $this->determinarNivelRisco($pontuacao);
         
-        // Gerar recomendações
-        $recomendacoes = $this->gerarRecomendacoes($nivel, $pontuacao);
-
+        // Avaliar sinais vitais
+        $pontuacao += $this->avaliarSinaisVitais($sinaisVitais);
+        
+        $nivel = $this->determinarNivelRisco($pontuacao);
+        $urgencia = $this->determinarUrgencia($nivel, $pontuacao);
+        
         return [
             'pontuacao' => $pontuacao,
             'nivel' => $nivel,
+            'urgencia' => $urgencia,
             'sintomas_detectados' => $sintomasDetectados,
-            'recomendacoes' => $recomendacoes,
-            'urgencia' => $this->determinarUrgencia($nivel, $pontuacao),
+            'recomendacoes' => $this->gerarRecomendacoes($nivel, $pontuacao),
             'cor' => $this->obterCorRisco($nivel),
             'icone' => $this->obterIconeRisco($nivel),
         ];
@@ -79,28 +92,62 @@ class TriagemService
     {
         $sintoma = strtolower($sintoma);
         
-        foreach ($this->sintomasRisco as $categoria => $sintomas) {
-            foreach ($sintomas as $sintomaKey => $pontos) {
-                if (str_contains($sintoma, $sintomaKey)) {
-                    return $pontos;
-                }
+        $sintomasRisco = [
+            'diarreia aquosa' => 4,
+            'diarreia abundante' => 4,
+            'desidratacao severa' => 5,
+            'desidratacao grave' => 5,
+            'vomito intenso' => 3,
+            'prostração' => 3,
+            'choque' => 5,
+            'hipotensao' => 4,
+            'diarreia' => 2,
+            'vomito' => 2,
+            'desidratacao' => 3,
+            'dor abdominal intensa' => 2,
+            'febre alta' => 2,
+            'fraqueza intensa' => 2,
+            'febre' => 1,
+            'dor abdominal' => 1,
+            'fraqueza' => 1,
+            'mal-estar' => 1,
+            'nauseas' => 1,
+            'dor de cabeça' => 1,
+        ];
+        
+        foreach ($sintomasRisco as $sintomaKey => $pontos) {
+            if (str_contains($sintoma, $sintomaKey)) {
+                return $pontos;
             }
         }
         
         return 0;
     }
 
-    private function analisarTextoSintomas(string $texto): int
+    private function avaliarSinaisVitais(array $sinaisVitais): int
     {
-        $texto = strtolower($texto);
         $pontuacao = 0;
         
-        foreach ($this->sintomasRisco as $categoria => $sintomas) {
-            foreach ($sintomas as $sintoma => $pontos) {
-                if (str_contains($texto, $sintoma)) {
-                    $pontuacao += $pontos;
-                }
-            }
+        // Temperatura
+        if (isset($sinaisVitais['temperatura'])) {
+            $temp = floatval($sinaisVitais['temperatura']);
+            if ($temp >= 39) $pontuacao += 2;
+            elseif ($temp >= 38) $pontuacao += 1;
+            elseif ($temp <= 35) $pontuacao += 3;
+        }
+        
+        // Frequência cardíaca
+        if (isset($sinaisVitais['frequencia_cardiaca'])) {
+            $fc = intval($sinaisVitais['frequencia_cardiaca']);
+            if ($fc >= 120) $pontuacao += 2;
+            elseif ($fc <= 50) $pontuacao += 2;
+        }
+        
+        // Saturação de oxigênio
+        if (isset($sinaisVitais['saturacao_oxigenio'])) {
+            $sat = intval($sinaisVitais['saturacao_oxigenio']);
+            if ($sat <= 90) $pontuacao += 3;
+            elseif ($sat <= 95) $pontuacao += 1;
         }
         
         return $pontuacao;
@@ -123,6 +170,27 @@ class TriagemService
             default:
                 return 'monitoramento';
         }
+    }
+
+    private function determinarStatusPaciente(string $urgencia): string
+    {
+        return match($urgencia) {
+            'emergencia', 'urgente' => 'aguardando',
+            'atencao' => 'aguardando',
+            default => 'aguardando'
+        };
+    }
+
+    private function requerAmbulancia(string $urgencia): bool
+    {
+        return in_array($urgencia, ['emergencia', 'urgente']);
+    }
+
+    private function recomendarHospital($paciente, string $diagnostico): ?array
+    {
+        // Lógica para recomendar hospital baseado no diagnóstico e localização
+        // Por enquanto retorna null, mas pode ser implementada
+        return null;
     }
 
     private function gerarRecomendacoes(string $nivel, int $pontuacao): array
@@ -194,6 +262,8 @@ class TriagemService
             'bi' => $paciente->bi,
             'telefone' => $paciente->telefone,
             'risco' => $paciente->risco,
+            'diagnostico_colera' => $paciente->diagnostico_colera,
+            'probabilidade_colera' => $paciente->probabilidade_colera,
             'data_triagem' => $paciente->data_triagem?->format('Y-m-d H:i:s'),
             'estabelecimento' => $paciente->estabelecimento->nome ?? null,
             'sistema' => 'SGSC Angola',
